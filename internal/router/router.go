@@ -12,9 +12,14 @@ import (
 	"myapp/internal/service"
 )
 
-// Setup sets up the router with all routes and middleware
-func Setup(h *handler.Handler, authService service.AuthService) *chi.Mux {
-	r := chi.NewRouter()
+type Router struct {
+	chi.Router
+}
+
+func New(h *handler.Handler, services *service.Services) *Router {
+	r := &Router{
+		Router: chi.NewRouter(),
+	}
 
 	// Global middleware
 	r.Use(middleware.RequestID)
@@ -34,14 +39,14 @@ func Setup(h *handler.Handler, authService service.AuthService) *chi.Mux {
 	// API routes
 	r.Route("/api", func(r chi.Router) {
 		// Auth routes
-		setupAuthRoutes(r, h, authService)
+		setupAuthRoutes(r, h, services.Auth)
 
 		// User routes
-		setupUserRoutes(r, h, authService)
+		setupUserRoutes(r, h, services.Auth)
 
 		// Other routes can be added in their own setup functions
-		// setupProductRoutes(r, h, authService)
-		// setupOrderRoutes(r, h, authService)
+		// setupProductRoutes(r, h, services)
+		// setupOrderRoutes(r, h, services)
 	})
 
 	return r

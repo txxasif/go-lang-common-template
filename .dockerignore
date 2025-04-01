@@ -1,0 +1,38 @@
+# Git files
+.git
+.gitignore
+
+# Build artifacts
+bin/
+tmp/
+
+# IDE files
+.vscode/
+.idea/
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Logs
+*.log
+
+# Development environment files
+.env
+.env.*
+!.env.example
+
+# Documentation
+*.md
+
+# Test files
+*_test.go
+**/mocks/
+
+# Vendor directory if not needed in container
+vendor/
+
+# Any other unnecessary files
+node_modules/
+postman.json 

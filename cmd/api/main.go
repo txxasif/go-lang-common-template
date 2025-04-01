@@ -12,53 +12,28 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"myapp/internal/config"
+	"myapp/internal/bootstrap"
 	"myapp/internal/db"
-	"myapp/internal/handler"
-	"myapp/internal/repository"
-	"myapp/internal/router"
-	"myapp/internal/service"
 )
 
 func main() {
-	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: No .env file found")
 	}
 
-	// Initialize configuration
-	cfg := config.New()
-
-	// Setup database connection
-	database, err := db.Connect(cfg)
+	app, err := bootstrap.NewApp()
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to initialize app: %v", err)
 	}
-	defer database.Close()
+	defer app.Database.Close()
 
-	// Auto migrate models
-	if err := db.Migrate(database); err != nil {
+	if err := db.Migrate(app.Database); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	// Initialize repositories
-	userRepo := repository.NewUserRepository(database)
-
-	// Initialize services
-	authService := service.NewAuthService(userRepo, cfg)
-
-	// Initialize handlers
-	h := handler.New(
-		handler.WithAuthHandler(authService),
-	)
-
-	// Setup router with all routes and middleware
-	r := router.Setup(h, authService)
-
-	// Start server
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.ServerPort),
-		Handler:      r,
+		Addr:         fmt.Sprintf(":%s", app.Config.ServerPort),
+		Handler:      app.Router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -90,10 +65,10 @@ func main() {
 	}()
 
 	// Start the server
-	log.Printf("Server is running on port %s", cfg.ServerPort)
+	log.Printf("Server is running on port %s", app.Config.ServerPort)
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Could not listen on %s: %v\n", cfg.ServerPort, err)
+		log.Fatalf("Could not listen on %s: %v\n", app.Config.ServerPort, err)
 	}
 
 	// Wait for server context to be stopped

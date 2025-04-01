@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+// contextKey is a custom type for context keys
+type contextKey string
+
+const userIDKey contextKey = "userID"
+
 // Auth is a middleware that checks for a valid JWT token in the Authorization header
 func Auth(authService service.AuthService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -40,7 +45,7 @@ func Auth(authService service.AuthService) func(http.Handler) http.Handler {
 			}
 
 			// Add the user ID to the request context
-			ctx := context.WithValue(r.Context(), "userID", userID)
+			ctx := context.WithValue(r.Context(), userIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

@@ -1,0 +1,34 @@
+services:
+  # Override API service for development-specific settings
+  api:
+    # Hot reload with Air
+    command: ["air", "-c", ".air.toml"]
+    # Extra debugging tools and utilities
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+    # Port for debuggers if needed
+    ports:
+      - "2345:2345"
+    # Additional volumes for development
+    volumes:
+      - .:/app
+      - go-modules:/go/pkg/mod
+
+  # Development tools
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ${PROJECT_NAME:-myapp}_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+    profiles: ["dev", "default"]
+
+volumes:
+  go-modules:
