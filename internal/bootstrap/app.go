@@ -1,53 +1,62 @@
 package bootstrap
 
 import (
+	"fmt"
+	"net/http"
+
 	"myapp/internal/config"
-	"myapp/internal/db"
 	"myapp/internal/handler"
 	"myapp/internal/repository"
 	"myapp/internal/router"
 	"myapp/internal/service"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
+// App holds all application dependencies
 type App struct {
 	Config   *config.Config
-	Database *db.DB
-	Router   *router.Router
-	Handler  *handler.Handler
-	Services *service.Services
-	Repos    *repository.Repositories
+	Database *gorm.DB
+	Router   http.Handler
 }
 
-func NewApp() (*App, error) {
-	// Load config
-	cfg := config.New()
-
-	// Setup DB
-	database, err := db.Connect(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize repos
-	repos := repository.NewRepositories(database)
-
-	// Initialize services
-	services := service.NewServices(repos, cfg)
-
-	// Initialize handlers
-	h := handler.New(
-		handler.WithAuthHandler(services.Auth),
+// NewApp creates a new App instance
+func NewApp(cfg *config.Config) (*App, error) {
+	// Setup database connection
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.User,
+		cfg.Database.Password,
+		cfg.Database.Name,
+		cfg.Database.SSLMode,
 	)
 
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	// Initialize repositories
+	repos := repository.NewRepositories(db)
+
+	// Initialize services
+	authService := service.NewAuthService(repos.User, cfg.JWT.Secret)
+	todoService := service.NewTodoService(repos.Todo)
+
+	// Initialize handlers
+	h := &handler.Handler{
+		UserHandler: handler.NewUserHandler(authService),
+		TodoHandler: handler.NewTodoHandler(todoService),
+	}
+
 	// Setup router
-	r := router.New(h, services)
+	r := router.New(h, authService)
 
 	return &App{
 		Config:   cfg,
-		Database: database,
+		Database: db,
 		Router:   r,
-		Handler:  h,
-		Services: services,
-		Repos:    repos,
 	}, nil
 }

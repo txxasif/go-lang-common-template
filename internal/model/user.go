@@ -45,17 +45,17 @@ func (u *User) ToResponse() UserResponse {
 
 // LoginRequest represents login request data
 type LoginRequest struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=6"`
+	Email    string `json:"email" validate:"required,email,max=100"`
+	Password string `json:"password" validate:"required,password"`
 }
 
 // RegisterRequest represents registration request data
 type RegisterRequest struct {
-	Email     string `json:"email" validate:"required,email"`
-	Username  string `json:"username" validate:"required,min=3"`
-	Password  string `json:"password" validate:"required,min=6"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
+	Email     string `json:"email" validate:"required,email,max=100"`
+	Username  string `json:"username" validate:"required,username"`
+	Password  string `json:"password" validate:"required,password"`
+	FirstName string `json:"first_name" validate:"required,min=2,max=50,alpha"`
+	LastName  string `json:"last_name" validate:"required,min=2,max=50,alpha"`
 }
 
 // AuthResponse represents authentication response data

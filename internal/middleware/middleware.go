@@ -1,21 +1,14 @@
 package middleware
 
-import (
-	"net/http"
-	//"time"
-)
+import "net/http"
+
+// Middleware is a function that wraps an http.HandlerFunc
+type Middleware func(http.HandlerFunc) http.HandlerFunc
 
 // RequestLogger logs information about each HTTP request
-func RequestLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//start := time.Now()
-
-		// Call the next handler
-		next.ServeHTTP(w, r)
-
+func RequestLogger(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		// Log request details
-		//	duration := time.Since(start)
-		// In a real application, you would use a proper logger
-		// log.Printf("%s %s %s %v", r.Method, r.RequestURI, r.RemoteAddr, duration)
-	})
+		next.ServeHTTP(w, r)
+	}
 }

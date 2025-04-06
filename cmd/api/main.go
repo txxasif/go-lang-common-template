@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,68 +9,65 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
-
 	"myapp/internal/bootstrap"
-	"myapp/internal/db"
+	"myapp/internal/config"
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Println("Warning: No .env file found")
-	}
-
-	app, err := bootstrap.NewApp()
+	// Load configuration
+	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to initialize app: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
-	defer app.Database.Close()
+	log.Printf("Configuration loaded: %+v", cfg)
 
-	if err := db.Migrate(app.Database); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+	// Create app instance
+	app, err := bootstrap.NewApp(cfg)
+	if err != nil {
+		log.Fatalf("Failed to create app: %v", err)
 	}
+	log.Println("App instance created successfully")
 
-	server := &http.Server{
-		Addr:         fmt.Sprintf(":%s", app.Config.ServerPort),
-		Handler:      app.Router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	// Server run context
-	serverCtx, serverStopCtx := context.WithCancel(context.Background())
-
-	// Listen for syscall signals to gracefully shutdown the server
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	go func() {
-		<-sig
-
-		shutdownCtx, _ := context.WithTimeout(serverCtx, 30*time.Second)
-		go func() {
-			<-shutdownCtx.Done()
-			if shutdownCtx.Err() == context.DeadlineExceeded {
-				log.Fatal("graceful shutdown timed out.. forcing exit.")
-			}
-		}()
-
-		// Trigger graceful shutdown
-		err := server.Shutdown(shutdownCtx)
+	// Close database connection when the application exits
+	defer func() {
+		sqlDB, err := app.Database.DB()
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("Failed to get underlying *sql.DB: %v", err)
+			return
 		}
-		serverStopCtx()
+		if err := sqlDB.Close(); err != nil {
+			log.Printf("Failed to close database connection: %v", err)
+		}
 	}()
 
-	// Start the server
-	log.Printf("Server is running on port %s", app.Config.ServerPort)
-	err = server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Could not listen on %s: %v\n", app.Config.ServerPort, err)
+	// Create server
+	srv := &http.Server{
+		Addr:    cfg.Server.Address,
+		Handler: app.Router,
 	}
 
-	// Wait for server context to be stopped
-	<-serverCtx.Done()
-	log.Println("Server stopped")
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Starting server on %s", cfg.Server.Address)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal to gracefully shutdown the server
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// Create context with timeout for shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Shutdown server
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exited properly")
 }

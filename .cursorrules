@@ -1,0 +1,107 @@
+# Project Patterns and Rules
+
+## Code Organization
+
+- Feature-based module structure
+- Each feature has its own package
+- Shared utilities in pkg directory
+- Configuration in internal/config
+- Entry points in cmd directory
+
+## Naming Conventions
+
+- Files: snake_case.go
+- Types: PascalCase
+- Functions: PascalCase
+- Variables: camelCase
+- Constants: SCREAMING_SNAKE_CASE
+
+## Code Style
+
+- Use gofmt for formatting
+- Maximum line length: 100 characters
+- Error handling: wrap errors with context
+- Comments: complete sentences with periods
+- Use interfaces for dependency injection
+
+## Project Structure
+
+```
+my-app/
+├── cmd/          # Application entry points
+├── internal/     # Private application code
+├── pkg/         # Public packages
+├── scripts/     # Utility scripts
+└── docker/      # Container configurations
+```
+
+## Development Workflow
+
+1. Write tests first
+2. Implement feature
+3. Format code
+4. Run tests
+5. Update documentation
+
+## Git Practices
+
+- Commit messages: imperative mood
+- Branch naming: feature/, bugfix/, hotfix/
+- Pull request required for main branch
+- Squash commits on merge
+
+## Testing Rules
+
+- Unit tests required for all packages
+- Integration tests for API endpoints
+- Test files next to implementation
+- Use table-driven tests
+- Mock external dependencies
+
+## Documentation
+
+- README.md in each package
+- GoDoc comments for exported items
+- Example usage in tests
+- API documentation in Postman
+- Architecture decisions documented
+
+## Security
+
+- No credentials in code
+- Use environment variables
+- Validate all input
+- Sanitize all output
+- Log security events
+
+## Performance
+
+- Use connection pooling
+- Cache when appropriate
+- Optimize database queries
+- Profile before optimizing
+- Monitor resource usage
+
+## Dependencies
+
+- Minimize external dependencies
+- Pin dependency versions
+- Vendor dependencies
+- Regular security updates
+- License compliance check
+
+## Error Handling
+
+- Custom error types
+- Contextual error wrapping
+- Consistent error responses
+- Log errors with stack traces
+- Graceful error recovery
+
+## Deployment
+
+- Use Docker Compose
+- Multi-stage builds
+- Health check endpoints
+- Graceful shutdown
+- Zero-downtime updates
