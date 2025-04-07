@@ -49,6 +49,12 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required,password"`
 }
 
+// LoginResponse represents login response data
+type LoginResponse struct {
+	User  UserResponse `json:"user"`
+	Token string       `json:"token"`
+}
+
 // RegisterRequest represents registration request data
 type RegisterRequest struct {
 	Email     string `json:"email" validate:"required,email,max=100"`
@@ -56,6 +62,12 @@ type RegisterRequest struct {
 	Password  string `json:"password" validate:"required,password"`
 	FirstName string `json:"first_name" validate:"required,min=2,max=50,alpha"`
 	LastName  string `json:"last_name" validate:"required,min=2,max=50,alpha"`
+}
+
+// RegisterResponse represents registration response data
+type RegisterResponse struct {
+	User  UserResponse `json:"user"`
+	Token string       `json:"token"`
 }
 
 // AuthResponse represents authentication response data

@@ -31,6 +31,7 @@ func NewUserRepository(db *gorm.DB) UserRepository {
 }
 
 // Create inserts a new user into the database
+// explain how this function works
 func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Create(user).Error
 }

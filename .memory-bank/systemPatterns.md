@@ -5,12 +5,19 @@
 The application follows a clean architecture pattern with clear separation of concerns:
 
 ```
-Feature Module
-├── handler.go (HTTP Layer)
-├── service.go (Business Logic)
-├── repository.go (Data Access)
-├── models.go (Data Structures)
-└── routes.go (Route Definitions)
+Application Structure
+├── internal/
+│   ├── bootstrap/     # Application initialization
+│   ├── config/       # Configuration management
+│   ├── db/          # Database setup
+│   ├── handler/     # HTTP handlers
+│   ├── middleware/  # HTTP middleware
+│   ├── model/       # Data models
+│   ├── pkg/         # Internal packages
+│   ├── repository/  # Data access layer
+│   ├── router/      # Route definitions
+│   ├── service/     # Business logic
+│   └── validation/  # Input validation
 ```
 
 ## Design Patterns
@@ -20,14 +27,21 @@ Feature Module
 - Abstracts data persistence operations
 - Enables swappable data sources
 - Centralizes data access logic
-- Example implementation in `internal/features/*/repository.go`
+- Located in `internal/repository/`
 
-### Dependency Injection
+### Service Layer Pattern
 
-- Services receive dependencies through constructors
-- Facilitates testing and modularity
-- Reduces tight coupling between components
-- Used consistently across feature modules
+- Contains business logic
+- Orchestrates data flow
+- Handles complex operations
+- Located in `internal/service/`
+
+### Validation Pattern
+
+- Input validation layer
+- Request validation
+- Data sanitization
+- Located in `internal/validation/`
 
 ### Middleware Pattern
 
@@ -36,13 +50,6 @@ Feature Module
 - CORS middleware
 - Recovery middleware
 - Located in `internal/middleware/`
-
-### Service Layer Pattern
-
-- Contains business logic
-- Orchestrates data flow
-- Handles complex operations
-- Independent of HTTP and database concerns
 
 ## Component Relationships
 
@@ -55,13 +62,13 @@ Feature Module
 5. Service → Repository
 6. Repository → Database
 
-### Authentication Flow
+### Validation Flow
 
-1. Client sends credentials
-2. Auth service validates
-3. JWT token generated
-4. Token included in subsequent requests
-5. Auth middleware validates token
+1. Request received
+2. Validation layer processes
+3. Handler processes valid request
+4. Service executes business logic
+5. Repository handles data access
 
 ## System Boundaries
 
@@ -74,10 +81,10 @@ Feature Module
 
 ### Internal Boundaries
 
-- Feature modules are self-contained
-- Shared utilities in `pkg/`
-- Configuration in `internal/config/`
-- Database setup in `internal/db/`
+- Clear separation between layers
+- Service layer for business logic
+- Repository layer for data access
+- Validation layer for input handling
 
 ## Error Handling
 
@@ -85,12 +92,13 @@ Feature Module
 - Proper HTTP status codes
 - Detailed error messages
 - Error wrapping when appropriate
+- Validation error handling
 
 ## Code Organization
 
-### Feature Module Structure
+### Layer Structure
 
-Each feature follows the same structure:
+Each layer follows a consistent pattern:
 
 ```go
 // handler.go
@@ -107,6 +115,11 @@ type Service struct {
 type Repository struct {
     db *gorm.DB
 }
+
+// validation.go
+type Validator struct {
+    // validation rules
+}
 ```
 
 ### Common Patterns
@@ -116,10 +129,12 @@ type Repository struct {
 - Error wrapping
 - Consistent naming conventions
 - Standard CRUD operations
+- Input validation
 
 ## Testing Strategy
 
 - Unit tests for business logic
 - Integration tests for repositories
 - API tests for endpoints
+- Validation tests
 - Mock interfaces for dependencies

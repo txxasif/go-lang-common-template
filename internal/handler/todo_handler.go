@@ -26,6 +26,18 @@ func NewTodoHandler(todoService service.TodoService) *TodoHandler {
 }
 
 // Create handles the creation of a new todo
+// @Summary Create a new todo
+// @Description Create a new todo item for the authenticated user
+// @Tags todos
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body model.TodoCreateRequest true "Todo creation details"
+// @Success 201 {object} model.Todo
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /todos [post]
 func (h *TodoHandler) Create(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserIDFromContext(r)
 	if err != nil {
@@ -49,6 +61,19 @@ func (h *TodoHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetByID handles retrieving a todo by ID
+// @Summary Get a todo by ID
+// @Description Get a specific todo item by its ID
+// @Tags todos
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Todo ID"
+// @Success 200 {object} model.Todo
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 403 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /todos/{id} [get]
 func (h *TodoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserIDFromContext(r)
 	if err != nil {
@@ -79,6 +104,16 @@ func (h *TodoHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetByUserID handles retrieving all todos for a user
+// @Summary Get all todos for a user
+// @Description Get all todo items for the authenticated user
+// @Tags todos
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} model.Todo
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /todos [get]
 func (h *TodoHandler) GetByUserID(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserIDFromContext(r)
 	if err != nil {
@@ -96,6 +131,19 @@ func (h *TodoHandler) GetByUserID(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles updating a todo
+// @Summary Update a todo
+// @Description Update an existing todo item
+// @Tags todos
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Todo ID"
+// @Param request body model.TodoUpdateRequest true "Todo update details"
+// @Success 200 {object} model.Todo
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /todos/{id} [put]
 func (h *TodoHandler) Update(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserIDFromContext(r)
 	if err != nil {
@@ -126,6 +174,18 @@ func (h *TodoHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles deleting a todo
+// @Summary Delete a todo
+// @Description Delete an existing todo item
+// @Tags todos
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Todo ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 500 {object} response.Response
+// @Router /todos/{id} [delete]
 func (h *TodoHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	userID, err := middleware.GetUserIDFromContext(r)
 	if err != nil {

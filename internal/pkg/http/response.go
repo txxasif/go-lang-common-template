@@ -3,24 +3,26 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+
+	"myapp/internal/pkg/validation"
 )
 
-// Error writes an error response in JSON format
+// Error sends an error response
 func Error(w http.ResponseWriter, status int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(map[string]string{
-		"error": message,
-	}); err != nil {
-		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
-	}
+	JSON(w, status, map[string]string{"error": message})
 }
 
-// JSON writes a successful JSON response
+// ValidationError sends a validation error response
+func ValidationError(w http.ResponseWriter, errors *validation.ValidationErrors) {
+	JSON(w, http.StatusBadRequest, map[string]interface{}{
+		"error":  "Validation failed",
+		"errors": errors.Errors,
+	})
+}
+
+// JSON sends a JSON response
 func JSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	json.NewEncoder(w).Encode(data)
 }

@@ -8,6 +8,7 @@
 - **Database**: PostgreSQL
 - **Authentication**: JWT
 - **Containerization**: Docker & Docker Compose
+- **Validation**: Custom validation layer
 
 ## Development Environment
 
@@ -16,6 +17,7 @@
 - **Hot Reload**: Air
 - **Environment Variables**: .env file
 - **Build Tool**: Make
+- **Code Organization**: Clean Architecture
 
 ## Project Dependencies
 
@@ -24,6 +26,7 @@
 - JWT-go for authentication
 - bcrypt for password hashing
 - godotenv for environment configuration
+- Custom validation layer for input handling
 
 ## Architecture Components
 
@@ -33,12 +36,23 @@
 2. Services (Business Logic)
 3. Repositories (Data Access)
 4. Models (Data Structures)
+5. Validation (Input Handling)
 
 ### Key Directories
 
 - `cmd/`: Application entry points
 - `internal/`: Private application code
-- `pkg/`: Reusable packages
+  - `bootstrap/`: Application initialization
+  - `config/`: Configuration management
+  - `db/`: Database setup
+  - `handler/`: HTTP handlers
+  - `middleware/`: HTTP middleware
+  - `model/`: Data models
+  - `pkg/`: Internal packages
+  - `repository/`: Data access layer
+  - `router/`: Route definitions
+  - `service/`: Business logic
+  - `validation/`: Input validation
 - `scripts/`: Utility scripts
 - `docker/`: Container configurations
 
@@ -49,6 +63,8 @@
 3. Implement proper error handling
 4. Write comprehensive tests
 5. Document all public APIs
+6. Validate all inputs
+7. Maintain clear layer separation
 
 ## Build and Deployment
 
@@ -72,6 +88,7 @@ docker-compose -f docker-compose.prod.yml up -d # Production
 - Password hashing with bcrypt
 - Environment variable protection
 - CORS configuration
+- Input validation
 - Rate limiting implementation
 
 ## Performance Optimization
@@ -80,6 +97,7 @@ docker-compose -f docker-compose.prod.yml up -d # Production
 - Query optimization
 - Proper indexing
 - Caching strategies (when implemented)
+- Validation efficiency
 
 ## Monitoring and Logging
 
@@ -87,3 +105,4 @@ docker-compose -f docker-compose.prod.yml up -d # Production
 - Error tracking
 - Performance metrics
 - Health checks
+- Validation metrics

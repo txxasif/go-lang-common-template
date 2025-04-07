@@ -10,13 +10,7 @@ import (
 
 var (
 	// ErrInvalidCredentials is returned when provided credentials are invalid
-	ErrInvalidCredentials = errors.New("invalid credentials")
-
-	// ErrUserAlreadyExists is returned when a user with the given email or username already exists
-	ErrUserAlreadyExists = errors.New("user already exists")
-
-	// ErrUserNotFound is returned when a user doesn't exist
-	ErrUserNotFound = errors.New("user not found")
+	ErrInvalidCredentials = model.ErrInvalidCredentials
 )
 
 // AuthService defines the interface for authentication operations
@@ -42,13 +36,22 @@ func NewAuthService(userRepo repository.UserRepository, jwtSecret string) AuthSe
 
 // Register registers a new user
 func (s *authService) Register(ctx context.Context, req *model.RegisterRequest) (*model.AuthResponse, error) {
-	// Check if user already exists
+	// Check if email already exists
 	existingUser, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, errors.New("user already exists")
+		return nil, model.ErrEmailAlreadyExists
+	}
+
+	// Check if username already exists
+	existingUser, err = s.userRepo.GetByUsername(ctx, req.Username)
+	if err != nil {
+		return nil, err
+	}
+	if existingUser != nil {
+		return nil, model.ErrUsernameAlreadyExists
 	}
 
 	// Create new user
@@ -87,11 +90,11 @@ func (s *authService) Login(ctx context.Context, email, password string) (*model
 		return nil, err
 	}
 	if user == nil {
-		return nil, errors.New("invalid credentials")
+		return nil, model.ErrUserNotFound
 	}
 
 	if !CheckPasswordHash(password, user.Password) {
-		return nil, errors.New("invalid credentials")
+		return nil, ErrInvalidCredentials
 	}
 
 	token, err := s.jwt.GenerateToken(strconv.FormatUint(uint64(user.ID), 10))
