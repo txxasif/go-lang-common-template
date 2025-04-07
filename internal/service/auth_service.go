@@ -1,74 +1,65 @@
 package service
 
 import (
+	"context"
 	"errors"
-	"myapp/internal/config"
 	"myapp/internal/model"
 	"myapp/internal/repository"
-	"myapp/pkg/hash"
-	"myapp/pkg/jwt"
+	"strconv"
 )
 
 var (
 	// ErrInvalidCredentials is returned when provided credentials are invalid
-	ErrInvalidCredentials = errors.New("invalid credentials")
-
-	// ErrUserAlreadyExists is returned when a user with the given email or username already exists
-	ErrUserAlreadyExists = errors.New("user already exists")
-
-	// ErrUserNotFound is returned when a user doesn't exist
-	ErrUserNotFound = errors.New("user not found")
+	ErrInvalidCredentials = model.ErrInvalidCredentials
 )
 
-// AuthService defines the interface for authentication-related operations
+// AuthService defines the interface for authentication operations
 type AuthService interface {
-	Register(req model.RegisterRequest) (*model.AuthResponse, error)
-	Login(req model.LoginRequest) (*model.AuthResponse, error)
-	GetUserByID(id uint) (*model.User, error)
-	VerifyToken(token string) (uint, error)
+	Login(ctx context.Context, email, password string) (*model.AuthResponse, error)
+	Register(ctx context.Context, req *model.RegisterRequest) (*model.AuthResponse, error)
+	GetUserByToken(ctx context.Context, token string) (*model.User, error)
 }
 
 // authService implements AuthService interface
 type authService struct {
 	userRepo repository.UserRepository
-	config   *config.Config
+	jwt      *JWTService
 }
 
 // NewAuthService creates a new AuthService instance
-func NewAuthService(userRepo repository.UserRepository, config *config.Config) AuthService {
+func NewAuthService(userRepo repository.UserRepository, jwtSecret string) AuthService {
 	return &authService{
 		userRepo: userRepo,
-		config:   config,
+		jwt:      NewJWTService(jwtSecret),
 	}
 }
 
 // Register registers a new user
-func (s *authService) Register(req model.RegisterRequest) (*model.AuthResponse, error) {
-	// Check if user with the given email already exists
-	existingUser, err := s.userRepo.GetByEmail(req.Email)
+func (s *authService) Register(ctx context.Context, req *model.RegisterRequest) (*model.AuthResponse, error) {
+	// Check if email already exists
+	existingUser, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, ErrUserAlreadyExists
+		return nil, model.ErrEmailAlreadyExists
 	}
 
-	// Check if user with the given username already exists
-	existingUser, err = s.userRepo.GetByUsername(req.Username)
+	// Check if username already exists
+	existingUser, err = s.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, err
 	}
 	if existingUser != nil {
-		return nil, ErrUserAlreadyExists
+		return nil, model.ErrUsernameAlreadyExists
 	}
 
-	// Hash the password
-	hashedPassword, err := hash.HashPassword(req.Password)
+	// Create new user
+	hashedPassword, err := HashPassword(req.Password)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create the user
 	user := &model.User{
 		Email:     req.Email,
 		Username:  req.Username,
@@ -77,17 +68,15 @@ func (s *authService) Register(req model.RegisterRequest) (*model.AuthResponse, 
 		LastName:  req.LastName,
 	}
 
-	if err := s.userRepo.Create(user); err != nil {
+	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, err
 	}
 
-	// Generate token
-	token, err := jwt.GenerateToken(user.ID, s.config.JWTSecret, s.config.JWTExpiresIn)
+	token, err := s.jwt.GenerateToken(strconv.FormatUint(uint64(user.ID), 10))
 	if err != nil {
 		return nil, err
 	}
 
-	// Return the response
 	return &model.AuthResponse{
 		User:  user.ToResponse(),
 		Token: token,
@@ -95,51 +84,49 @@ func (s *authService) Register(req model.RegisterRequest) (*model.AuthResponse, 
 }
 
 // Login authenticates a user
-func (s *authService) Login(req model.LoginRequest) (*model.AuthResponse, error) {
-	// Find the user by email
-	user, err := s.userRepo.GetByEmail(req.Email)
+func (s *authService) Login(ctx context.Context, email, password string) (*model.AuthResponse, error) {
+	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
 	if user == nil {
+		return nil, model.ErrUserNotFound
+	}
+
+	if !CheckPasswordHash(password, user.Password) {
 		return nil, ErrInvalidCredentials
 	}
 
-	// Verify the password
-	if !hash.CheckPasswordHash(req.Password, user.Password) {
-		return nil, ErrInvalidCredentials
-	}
-
-	// Generate token
-	token, err := jwt.GenerateToken(user.ID, s.config.JWTSecret, s.config.JWTExpiresIn)
+	token, err := s.jwt.GenerateToken(strconv.FormatUint(uint64(user.ID), 10))
 	if err != nil {
 		return nil, err
 	}
 
-	// Return the response
 	return &model.AuthResponse{
 		User:  user.ToResponse(),
 		Token: token,
 	}, nil
 }
 
-// GetUserByID retrieves a user by ID
-func (s *authService) GetUserByID(id uint) (*model.User, error) {
-	user, err := s.userRepo.GetByID(id)
+// GetUser retrieves a user by ID
+func (s *authService) GetUserByToken(ctx context.Context, token string) (*model.User, error) {
+	userIDStr, err := s.jwt.ValidateToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	userID, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		return nil, errors.New("invalid user ID in token")
+	}
+
+	user, err := s.userRepo.GetByID(ctx, uint(userID))
 	if err != nil {
 		return nil, err
 	}
 	if user == nil {
-		return nil, ErrUserNotFound
+		return nil, errors.New("user not found")
 	}
-	return user, nil
-}
 
-// VerifyToken verifies a JWT token and returns the associated user ID
-func (s *authService) VerifyToken(token string) (uint, error) {
-	claims, err := jwt.VerifyToken(token, s.config.JWTSecret)
-	if err != nil {
-		return 0, err
-	}
-	return claims.UserID, nil
+	return user, nil
 }

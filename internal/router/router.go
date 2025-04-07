@@ -1,78 +1,48 @@
 package router
 
 import (
-	"time"
+	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 
 	"myapp/internal/handler"
-	appMiddleware "myapp/internal/middleware"
+	authmiddleware "myapp/internal/middleware"
+	"myapp/internal/router/routes"
 	"myapp/internal/service"
 )
 
-type Router struct {
-	chi.Router
-}
-
-func New(h *handler.Handler, services *service.Services) *Router {
-	r := &Router{
-		Router: chi.NewRouter(),
-	}
+// New creates a new router with all routes configured
+func New(h *handler.Handler, authService service.AuthService) http.Handler {
+	r := chi.NewRouter()
 
 	// Global middleware
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	r.Use(chimiddleware.Logger)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP)
 
-	// API routes
-	r.Route("/api", func(r chi.Router) {
-		// Auth routes
-		setupAuthRoutes(r, h, services.Auth)
+	// Swagger UI routes (public)
+	r.Group(func(r chi.Router) {
+		routes.SetupSwaggerRoutes(r)
+	})
+
+	// Public routes
+	r.Group(func(r chi.Router) {
+		routes.SetupAuthRoutes(r, h)
+	})
+
+	// Protected routes
+	r.Group(func(r chi.Router) {
+		// Auth middleware
+		r.Use(authmiddleware.Auth(authService))
 
 		// User routes
-		setupUserRoutes(r, h, services.Auth)
+		routes.SetupUserRoutes(r, h)
 
-		// Other routes can be added in their own setup functions
-		// setupProductRoutes(r, h, services)
-		// setupOrderRoutes(r, h, services)
+		// Todo routes
+		routes.SetupTodoRoutes(r, h)
 	})
 
 	return r
 }
-
-// setupAuthRoutes configures all authentication-related routes
-func setupAuthRoutes(r chi.Router, h *handler.Handler, authService service.AuthService) {
-	r.Group(func(r chi.Router) {
-		r.Post("/login", h.Auth.Login)
-		r.Post("/register", h.Auth.Register)
-	})
-}
-
-// setupUserRoutes configures all user-related routes
-func setupUserRoutes(r chi.Router, h *handler.Handler, authService service.AuthService) {
-	r.Group(func(r chi.Router) {
-		// Protected routes
-		r.Use(appMiddleware.Auth(authService))
-		r.Get("/user", h.Auth.GetUser)
-
-		// Additional user routes would go here
-		// r.Put("/user", h.User.UpdateUser)
-		// r.Delete("/user", h.User.DeleteUser)
-	})
-}
-
-// Additional route setup functions would be defined here
-// func setupProductRoutes(r chi.Router, h *handler.Handler, authService service.AuthService) {...}
-// func setupOrderRoutes(r chi.Router, h *handler.Handler, authService service.AuthService) {...}

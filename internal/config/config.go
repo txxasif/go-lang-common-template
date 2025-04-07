@@ -3,44 +3,60 @@ package config
 import (
 	"os"
 	"time"
+
+	"github.com/joho/godotenv"
 )
+
+// Server holds server configuration
+type Server struct {
+	Address string
+}
+
+// Database holds database configuration
+type Database struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Name     string
+	SSLMode  string
+}
+
+// JWT holds JWT configuration
+type JWT struct {
+	Secret    string
+	ExpiresIn time.Duration
+}
 
 // Config holds all application configuration
 type Config struct {
-	// Server config
-	ServerPort string
-
-	// Database config
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	DBSSLMode  string
-
-	// JWT config
-	JWTSecret    string
-	JWTExpiresIn time.Duration
+	Server   Server
+	Database Database
+	JWT      JWT
 }
 
-// New returns a new Config struct
-func New() *Config {
+// Load loads configuration from environment variables
+func Load() (*Config, error) {
+	// Load .env file if it exists
+	_ = godotenv.Load()
+
 	return &Config{
-		// Server config
-		ServerPort: getEnv("SERVER_PORT", "8080"),
-
-		// Database config
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "5432"),
-		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", "postgres"),
-		DBName:     getEnv("DB_NAME", "myapp"),
-		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
-
-		// JWT config
-		JWTSecret:    getEnv("JWT_SECRET", "your-secret-key"),
-		JWTExpiresIn: time.Duration(getEnvAsInt("JWT_EXPIRES_IN", 24)) * time.Hour,
-	}
+		Server: Server{
+			Address: getEnv("SERVER_ADDRESS", ":8080"),
+		},
+		Database: Database{
+			Host:     getEnv("DB_HOST", "localhost"),
+			Port:     getEnv("DB_PORT", "5432"),
+			User:     getEnv("DB_USER", "postgres"),
+			Password: getEnv("DB_PASSWORD", "postgres"),
+			Name:     getEnv("DB_NAME", "myapp"),
+			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		},
+		JWT: JWT{
+			Secret:    getEnv("JWT_SECRET", "your-secret-key"),
+			ExpiresIn: time.Duration(getEnvAsInt("JWT_EXPIRES_IN", 24)) * time.Hour,
+		},
+	}, nil
 }
 
 // getEnv retrieves environment variables with fallback values

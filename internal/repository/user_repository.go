@@ -1,8 +1,8 @@
 package repository
 
 import (
+	"context"
 	"errors"
-	"myapp/internal/db"
 	"myapp/internal/model"
 
 	"gorm.io/gorm"
@@ -10,76 +10,74 @@ import (
 
 // UserRepository defines the interface for user-related database operations
 type UserRepository interface {
-	Create(user *model.User) error
-	GetByID(id uint) (*model.User, error)
-	GetByEmail(email string) (*model.User, error)
-	GetByUsername(username string) (*model.User, error)
-	Update(user *model.User) error
-	Delete(id uint) error
+	Create(ctx context.Context, user *model.User) error
+	GetByID(ctx context.Context, id uint) (*model.User, error)
+	GetByEmail(ctx context.Context, email string) (*model.User, error)
+	GetByUsername(ctx context.Context, username string) (*model.User, error)
+	Update(ctx context.Context, user *model.User) error
+	Delete(ctx context.Context, id uint) error
 }
 
 // userRepository implements UserRepository interface
 type userRepository struct {
-	db *db.DB
+	db *gorm.DB
 }
 
 // NewUserRepository creates a new UserRepository instance
-func NewUserRepository(db *db.DB) UserRepository {
+func NewUserRepository(db *gorm.DB) UserRepository {
 	return &userRepository{
 		db: db,
 	}
 }
 
 // Create inserts a new user into the database
-func (r *userRepository) Create(user *model.User) error {
-	return r.db.Create(user).Error
+// explain how this function works
+func (r *userRepository) Create(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Create(user).Error
 }
 
 // GetByID retrieves a user by ID
-func (r *userRepository) GetByID(id uint) (*model.User, error) {
+func (r *userRepository) GetByID(ctx context.Context, id uint) (*model.User, error) {
 	var user model.User
-	result := r.db.First(&user, id)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if err := r.db.WithContext(ctx).First(&user, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, result.Error
+		return nil, err
 	}
 	return &user, nil
 }
 
 // GetByEmail retrieves a user by email
-func (r *userRepository) GetByEmail(email string) (*model.User, error) {
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
-	result := r.db.Where("email = ?", email).First(&user)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, result.Error
+		return nil, err
 	}
 	return &user, nil
 }
 
 // GetByUsername retrieves a user by username
-func (r *userRepository) GetByUsername(username string) (*model.User, error) {
+func (r *userRepository) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
-	result := r.db.Where("username = ?", username).First(&user)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, result.Error
+		return nil, err
 	}
 	return &user, nil
 }
 
-// Update updates an existing user
-func (r *userRepository) Update(user *model.User) error {
-	return r.db.Save(user).Error
+// Update updates a user in the database
+func (r *userRepository) Update(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
 }
 
-// Delete soft-deletes a user by ID
-func (r *userRepository) Delete(id uint) error {
-	return r.db.Delete(&model.User{}, id).Error
+// Delete removes a user from the database
+func (r *userRepository) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Delete(&model.User{}, id).Error
 }
