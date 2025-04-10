@@ -53,27 +53,37 @@ The Docker setup consists of the following components:
 
 ### Docker Compose Files
 
-- `docker-compose.yml` - Base configuration with dev and prod profiles
-- `docker-compose.override.yml` - Development-specific overrides (loaded automatically)
+- `docker-compose.dev.yml` - Development environment configuration
+- `docker-compose.prod.yml` - Production environment configuration
 
-### Environment Profiles
+### Environment Configuration
 
-The Docker Compose files use profiles to manage different environments:
+The Docker Compose files are separated by environment:
 
-- **dev** (default): Development environment with hot reloading and debugging tools
-- **prod**: Production environment with optimized configuration
+- **Development**: Uses `docker-compose.dev.yml`
+
+  - Hot reloading with Air
+  - Debugging tools
+  - Development database
+  - PgAdmin for database management
+
+- **Production**: Uses `docker-compose.prod.yml`
+  - Optimized for production
+  - Resource limits
+  - Security configurations
+  - Production database
 
 ## Services
 
 ### Development Environment Services
 
-- **api**: Go API with hot reloading via Air
+- **app**: Go API with hot reloading via Air
 - **postgres**: PostgreSQL database
 - **pgadmin**: Web interface for PostgreSQL management
 
 ### Production Environment Services
 
-- **api-prod**: Production-ready Go API with optimized settings
+- **api**: Production-ready Go API
 - **postgres**: PostgreSQL database
 
 ## Security Features
@@ -82,7 +92,7 @@ The Docker Compose files use profiles to manage different environments:
 - Read-only filesystem for production
 - Limited container resources
 - Various security options like `no-new-privileges`
-- Distroless base image for production
+- Alpine base image for smaller footprint
 
 ## Resource Limits
 

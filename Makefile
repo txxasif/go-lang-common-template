@@ -16,7 +16,7 @@ help: ## Display available commands
 dev: ## Start development environment
 	@echo "Starting development environment..."
 	cp -n .env.example .env 2>/dev/null || true
-	$(DOCKER_COMPOSE) up -d
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml up -d
 	@echo "Development environment is running."
 	@echo "API is available at http://localhost:8080"
 	@echo "PostgreSQL is available at localhost:5432"
@@ -26,14 +26,14 @@ dev: ## Start development environment
 prod: ## Start production environment
 	@echo "Starting production environment..."
 	cp -n .env.example .env 2>/dev/null || true
-	$(DOCKER_COMPOSE) --profile prod up -d api-prod postgres
+	$(DOCKER_COMPOSE) -f docker-compose.prod.yml up -d
 	@echo "Production environment is running."
 	@echo "API is available at http://localhost:8080"
 
 # Stop environment
 down: ## Stop development environment
 	@echo "Stopping environment..."
-	$(DOCKER_COMPOSE) down
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml down
 	@echo "Environment stopped."
 
 # Docker scripts
@@ -52,51 +52,51 @@ docker-clean: ## Clean Docker environment using script
 # Build containers
 build: ## Build Docker containers
 	@echo "Building containers..."
-	$(DOCKER_COMPOSE) build
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml build
 	@echo "Build complete."
 
 # Rebuild containers
 rebuild: ## Rebuild Docker containers from scratch
 	@echo "Rebuilding containers..."
-	$(DOCKER_COMPOSE) build --no-cache
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml build --no-cache
 	@echo "Rebuild complete."
 
 # Run tests
 test: ## Run tests
-	$(DOCKER_COMPOSE) exec api go test ./... -v
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec app go test ./... -v
 
 # Run linter
 lint: ## Run linter
-	$(DOCKER_COMPOSE) exec api go vet ./...
-	$(DOCKER_COMPOSE) exec api golangci-lint run
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec app go vet ./...
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec app golangci-lint run
 
 # Clean up
 clean: down ## Clean up development environment
 	@echo "Cleaning up..."
-	$(DOCKER_COMPOSE) down -v
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml down -v
 	rm -rf tmp/
 	@echo "Clean complete."
 
 # Show logs
 logs: ## Show logs from containers
-	$(DOCKER_COMPOSE) logs -f
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml logs -f
 
 # Enter API container shell
 shell: ## Open shell in API container
-	$(DOCKER_COMPOSE) exec api sh
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec app sh
 
 # Migrate database
 migrate: ## Run database migrations
-	$(DOCKER_COMPOSE) exec api go run cmd/api/main.go migrate
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml exec app go run cmd/api/main.go migrate
 
 # Show container status
 ps: ## Show container status
-	$(DOCKER_COMPOSE) ps
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml ps
 
 # Restart containers
 restart: ## Restart containers
-	$(DOCKER_COMPOSE) restart
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml restart
 
 # Pull latest images
 pull: ## Pull latest images
-	$(DOCKER_COMPOSE) pull
+	$(DOCKER_COMPOSE) -f docker-compose.dev.yml pull
