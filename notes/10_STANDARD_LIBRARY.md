@@ -1,463 +1,589 @@
 # Go Standard Library Core Packages: A Comprehensive Guide
 
+This guide covers Go's standard library core packages, essential for building efficient, idiomatic applications.
+
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Strings Package](#strings-package)
-3. [Bytes Package](#bytes-package)
-4. [Time Package](#time-package)
-5. [Sync Package](#sync-package)
-6. [IO Package](#io-package)
-7. [Best Practices](#best-practices)
-8. [Advanced Patterns](#advanced-patterns)
+- [Introduction](#introduction)
+- [Strings Package](#strings-package)
+- [Bytes Package](#bytes-package)
+- [Time Package](#time-package)
+- [Sync Package](#sync-package)
+- [IO Package](#io-package)
+- [Additional Core Packages](#additional-core-packages)
+- [Best Practices](#best-practices)
+- [Advanced Patterns](#advanced-patterns)
+- [Testing with the Standard Library](#testing-with-the-standard-library)
 
 ## Introduction
 
-The Go standard library provides a rich set of packages that are essential for everyday programming. These packages are designed to be efficient, safe, and easy to use. Understanding these core packages is crucial for writing idiomatic Go code.
+Go's standard library is a cornerstone of its ecosystem, offering well-tested, performant packages for common tasks.
 
-### Why Use Standard Library?
+### Why the Standard Library?
 
-1. **Performance**: Optimized for Go's runtime
-2. **Safety**: Well-tested and production-ready
-3. **Consistency**: Follows Go's design principles
-4. **Maintainability**: Widely understood and documented
+- **Performance**: Optimized for Go's runtime
+- **Reliability**: Thoroughly tested and stable
+- **Consistency**: Adheres to Go's design principles
+- **No Dependencies**: Reduces external library reliance
 
 ## Strings Package
 
-### Understanding Strings in Go
+The `strings` package provides tools for manipulating UTF-8 encoded, immutable strings.
 
-In Go, strings are immutable sequences of bytes. They are UTF-8 encoded by default, making them suitable for international text.
-
-#### Basic String Operations
+### Key Operations
 
 ```go
-// String creation
-s := "Hello, 世界"  // UTF-8 encoded string
+package main
 
-// Length (in bytes, not characters)
-length := len(s)  // Returns 13 (7 for "Hello, " + 6 for "世界")
+import (
+    "fmt"
+    "strings"
+    "unicode/utf8"
+)
 
-// Character count
-runeCount := utf8.RuneCountInString(s)  // Returns 9
+func main() {
+    s := "Hello, 世界"
+
+    // Basic operations
+    fmt.Println("Length (bytes):", len(s))               // 13
+    fmt.Println("Rune count:", utf8.RuneCountInString(s)) // 9
+    fmt.Println("Contains '世界':", strings.Contains(s, "世界")) // true
+    fmt.Println("Split:", strings.Split(s, ","))         // [Hello  世界]
+    fmt.Println("Join:", strings.Join([]string{"a", "b"}, "-")) // a-b
+    fmt.Println("ToUpper:", strings.ToUpper(s))          // HELLO, 世界
+}
 ```
 
-#### String Manipulation
+### String Builder
+
+`strings.Builder` is a mutable buffer for efficient string concatenation.
 
 ```go
-// Substring
-sub := s[0:5]  // "Hello"
+package main
 
-// Contains
-contains := strings.Contains(s, "世界")  // true
+import (
+    "fmt"
+    "strings"
+)
 
-// Split
-parts := strings.Split(s, ",")  // ["Hello", " 世界"]
-
-// Join
-joined := strings.Join(parts, "-")  // "Hello- 世界"
+func main() {
+    var b strings.Builder
+    b.WriteString("Hello")
+    b.WriteString(", ")
+    b.WriteString("World!")
+    fmt.Println(b.String()) // Hello, World!
+    fmt.Println("Capacity:", b.Cap()) // Shows allocated capacity
+}
 ```
-
-#### String Builder
-
-The `strings.Builder` is an efficient way to build strings, especially when concatenating multiple strings.
-
-```go
-var builder strings.Builder
-
-// Write operations
-builder.WriteString("Hello")
-builder.WriteString(", ")
-builder.WriteString("World!")
-
-// Get result
-result := builder.String()  // "Hello, World!"
-```
-
-**Why Use String Builder?**
-
-1. **Efficiency**: Minimizes memory allocations
-2. **Performance**: Faster than regular string concatenation
-3. **Memory**: Reduces garbage collection pressure
 
 ## Bytes Package
 
-### Understanding Bytes in Go
+The `bytes` package handles mutable byte slices, complementing the `strings` package.
 
-The `bytes` package provides functions for manipulating byte slices, which are mutable sequences of bytes.
-
-#### Byte Slice Operations
+### Byte Slices
 
 ```go
-// Create byte slice
-b := []byte("Hello")
+package main
 
-// Compare
-result := bytes.Compare(b, []byte("Hello"))  // 0 (equal)
+import (
+    "bytes"
+    "fmt"
+)
 
-// Contains
-contains := bytes.Contains(b, []byte("ell"))  // true
+func main() {
+    b := []byte("Hello")
 
-// Split
-parts := bytes.Split(b, []byte("l"))  // [][]byte{[]byte("He"), []byte("o")}
+    fmt.Println("Equal to 'Hello':", bytes.Equal(b, []byte("Hello"))) // true
+    fmt.Println("Contains 'ell':", bytes.Contains(b, []byte("ell")))  // true
+    fmt.Println("Split:", bytes.Split(b, []byte("l")))               // [[H e] [] [o]]
+    fmt.Println("TrimSpace:", string(bytes.TrimSpace([]byte("  hi  ")))) // hi
+}
 ```
 
-#### Buffer Operations
+### Bytes Buffer
 
-The `bytes.Buffer` is a variable-sized buffer of bytes with Read and Write methods.
+`bytes.Buffer` is a resizable buffer for reading and writing bytes.
 
 ```go
-// Create buffer
-var buf bytes.Buffer
+package main
 
-// Write operations
-buf.WriteString("Hello")
-buf.WriteByte(',')
-buf.Write([]byte(" World!"))
+import (
+    "bytes"
+    "fmt"
+)
 
-// Read operations
-result := buf.String()  // "Hello, World!"
+func main() {
+    var buf bytes.Buffer
+    buf.WriteString("Hello")
+    buf.WriteByte(',')
+    buf.Write([]byte(" World!"))
+    fmt.Println(buf.String()) // Hello, World!
+
+    // Read a chunk
+    chunk := make([]byte, 5)
+    n, _ := buf.Read(chunk)
+    fmt.Println(string(chunk[:n])) // Hello
+}
 ```
-
-**When to Use Bytes Package?**
-
-1. **Performance**: When working with raw bytes
-2. **Memory**: When minimizing allocations
-3. **IO**: When dealing with binary data
 
 ## Time Package
 
-### Understanding Time in Go
+The `time` package manages time-related operations, including formatting, parsing, and durations.
 
-The `time` package provides functionality for measuring and displaying time.
-
-#### Time Creation and Formatting
+### Time Handling
 
 ```go
-// Current time
-now := time.Now()
+package main
 
-// Specific time
-t := time.Date(2023, time.January, 1, 12, 0, 0, 0, time.UTC)
+import (
+    "fmt"
+    "time"
+)
 
-// Formatting
-formatted := t.Format("2006-01-02 15:04:05")
+func main() {
+    now := time.Now()
+    fmt.Println("Now:", now.Format("2006-01-02 15:04:05"))
 
-// Parsing
-parsed, _ := time.Parse("2006-01-02", "2023-01-01")
+    // Custom time
+    t := time.Date(2025, time.April, 11, 12, 0, 0, 0, time.UTC)
+    fmt.Println("Custom:", t)
+
+    // Operations
+    duration := 2 * time.Hour
+    fmt.Println("Future:", now.Add(duration))
+    fmt.Println("Is after:", t.After(now)) // true
+
+    // Parse
+    parsed, _ := time.Parse("2006-01-02", "2025-04-11")
+    fmt.Println("Parsed:", parsed)
+}
 ```
 
-#### Time Operations
+### Timers and Tickers
 
 ```go
-// Duration
-duration := time.Hour * 2
+package main
 
-// Add time
-future := now.Add(duration)
+import (
+    "fmt"
+    "time"
+)
 
-// Subtract time
-past := now.Add(-duration)
+func main() {
+    // Timer: one-time event
+    timer := time.NewTimer(2 * time.Second)
+    defer timer.Stop()
+    fmt.Println("Waiting for timer...")
+    <-timer.C
+    fmt.Println("Timer fired!")
 
-// Time comparison
-isAfter := future.After(now)  // true
-```
-
-#### Tickers and Timers
-
-```go
-// Ticker (repeating)
-ticker := time.NewTicker(time.Second)
-defer ticker.Stop()
-
-// Timer (one-time)
-timer := time.NewTimer(time.Second)
-defer timer.Stop()
-
-// Usage
-select {
-case <-ticker.C:
-    // Every second
-case <-timer.C:
-    // After one second
+    // Ticker: repeating events
+    ticker := time.NewTicker(500 * time.Millisecond)
+    defer ticker.Stop()
+    done := make(chan bool)
+    go func() {
+        time.Sleep(2 * time.Second)
+        done <- true
+    }()
+    for {
+        select {
+        case <-ticker.C:
+            fmt.Println("Tick")
+        case <-done:
+            fmt.Println("Done")
+            return
+        }
+    }
 }
 ```
 
 ## Sync Package
 
-### Understanding Concurrency in Go
+The `sync` package provides synchronization primitives for concurrent programming.
 
-The `sync` package provides basic synchronization primitives.
+### Mutexes
 
-#### Mutex
-
-A Mutex is a mutual exclusion lock.
+`sync.Mutex` and `sync.RWMutex` ensure mutual exclusion.
 
 ```go
+package main
+
+import (
+    "fmt"
+    "sync"
+)
+
 type SafeCounter struct {
-    mu    sync.Mutex
+    mu    sync.RWMutex
     count int
 }
 
-func (c *SafeCounter) Increment() {
+func (c *SafeCounter) Inc() {
     c.mu.Lock()
     defer c.mu.Unlock()
     c.count++
 }
+
+func (c *SafeCounter) Value() int {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    return c.count
+}
+
+func main() {
+    c := &SafeCounter{}
+    var wg sync.WaitGroup
+    for i := 0; i < 100; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            c.Inc()
+        }()
+    }
+    wg.Wait()
+    fmt.Println("Count:", c.Value()) // 100
+}
 ```
 
-#### WaitGroup
+### WaitGroup
 
-A WaitGroup waits for a collection of goroutines to finish.
-
-```go
-var wg sync.WaitGroup
-
-for i := 0; i < 5; i++ {
-    wg.Add(1)
-    go func(id int) {
-        defer wg.Done()
-        // Do work
-    }(i)
-}
-
-wg.Wait()  // Wait for all goroutines
-```
-
-#### RWMutex
-
-A RWMutex is a reader/writer mutual exclusion lock.
+`sync.WaitGroup` synchronizes goroutines.
 
 ```go
-type SafeMap struct {
-    mu   sync.RWMutex
-    data map[string]interface{}
-}
+package main
 
-func (m *SafeMap) Get(key string) interface{} {
-    m.mu.RLock()
-    defer m.mu.RUnlock()
-    return m.data[key]
-}
+import (
+    "fmt"
+    "sync"
+)
 
-func (m *SafeMap) Set(key string, value interface{}) {
-    m.mu.Lock()
-    defer m.mu.Unlock()
-    m.data[key] = value
+func main() {
+    var wg sync.WaitGroup
+    for i := 1; i <= 3; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            fmt.Printf("Worker %d done\n", id)
+        }(i)
+    }
+    wg.Wait()
+    fmt.Println("All workers completed")
 }
 ```
 
 ## IO Package
 
-### Understanding IO in Go
+The `io` package defines core I/O interfaces and utilities.
 
-The `io` package provides basic interfaces to I/O primitives.
-
-#### Basic IO Operations
+### Core Interfaces
 
 ```go
-// Reader interface
-type Reader interface {
-    Read(p []byte) (n int, err error)
-}
+package main
 
-// Writer interface
-type Writer interface {
-    Write(p []byte) (n int, err error)
-}
+import (
+    "fmt"
+    "io"
+    "strings"
+)
 
-// Closer interface
-type Closer interface {
-    Close() error
+func main() {
+    r := strings.NewReader("Hello, World!")
+    buf := make([]byte, 5)
+    n, err := r.Read(buf)
+    fmt.Printf("Read %d bytes: %s\n", n, buf[:n]) // Read 5 bytes: Hello
+    if err != nil {
+        fmt.Println("Error:", err)
+    }
 }
 ```
 
-#### File Operations
+### Utilities
 
 ```go
-// Open file
-file, err := os.Open("file.txt")
-if err != nil {
-    log.Fatal(err)
+package main
+
+import (
+    "bytes"
+    "fmt"
+    "io"
+    "strings"
+)
+
+func main() {
+    // Copy
+    src := strings.NewReader("Hello")
+    var dst bytes.Buffer
+    n, err := io.Copy(&dst, src)
+    fmt.Printf("Copied %d bytes: %s\n", n, dst.String()) // Copied 5 bytes: Hello
+
+    // MultiReader
+    r1 := strings.NewReader("Hello, ")
+    r2 := strings.NewReader("World!")
+    multi := io.MultiReader(r1, r2)
+    data, _ := io.ReadAll(multi)
+    fmt.Println(string(data)) // Hello, World!
+
+    // TeeReader
+    var buf bytes.Buffer
+    tee := io.TeeReader(strings.NewReader("Hi"), &buf)
+    out, _ := io.ReadAll(tee)
+    fmt.Println(string(out), buf.String()) // Hi Hi
 }
-defer file.Close()
-
-// Read file
-data := make([]byte, 100)
-n, err := file.Read(data)
-
-// Write file
-err = os.WriteFile("output.txt", data, 0644)
 ```
 
-#### IO Utilities
+## Additional Core Packages
+
+### fmt Package
+
+The `fmt` package handles formatted I/O.
 
 ```go
-// Copy
-src := strings.NewReader("Hello")
-dst := new(bytes.Buffer)
-io.Copy(dst, src)
+package main
 
-// MultiReader
-r1 := strings.NewReader("Hello")
-r2 := strings.NewReader("World")
-multi := io.MultiReader(r1, r2)
+import "fmt"
 
-// TeeReader
-var buf bytes.Buffer
-tee := io.TeeReader(strings.NewReader("Hello"), &buf)
+func main() {
+    // Printing
+    name := "Alice"
+    fmt.Printf("Hello, %s! Score: %d\n", name, 95)
+    fmt.Fprintf(&bytes.Buffer{}, "Log: %v", name)
+
+    // Scanning
+    var input string
+    fmt.Scan(&input)
+    fmt.Println("Input:", input)
+}
+```
+
+### os Package
+
+The `os` package provides platform-independent OS interactions.
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+)
+
+func main() {
+    // File operations
+    err := os.WriteFile("test.txt", []byte("Hello"), 0644)
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+
+    data, err := os.ReadFile("test.txt")
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+    fmt.Println(string(data)) // Hello
+
+    // Environment
+    fmt.Println("PATH:", os.Getenv("PATH"))
+}
 ```
 
 ## Best Practices
 
-### String Operations
+### General Guidelines
 
-1. **Use `strings.Builder` for multiple concatenations**
+- **Check Errors**: Always handle errors explicitly
+- **Close Resources**: Use `defer` for cleanup
+- **Use Standard Functions**: Prefer library implementations
+- **Profile Performance**: Optimize based on benchmarks
 
-   - More efficient than `+` operator
-   - Reduces memory allocations
-   - Better performance for large strings
+### Package-Specific Tips
 
-2. **Prefer `strings.Contains` over manual searching**
+- **Strings**:
 
-   - More readable
-   - Handles edge cases
-   - Optimized implementation
+  - Use `strings.Builder` for heavy concatenation
+  - Prefer `strings.Contains` over manual loops
+  - Handle UTF-8 correctly with `unicode/utf8`
 
-3. **Use `strings.Split` for complex parsing**
-   - Handles multiple separators
-   - Consistent behavior
-   - Memory efficient
+- **Bytes**:
 
-### Byte Operations
+  - Use `bytes.Buffer` for dynamic byte growth
+  - Avoid unnecessary conversions to strings
 
-1. **Use `bytes.Buffer` for byte manipulation**
+- **Time**:
 
-   - Efficient for growing buffers
-   - Provides both read and write operations
-   - Memory efficient
+  - Use `time.Now()` for current time
+  - Specify layouts explicitly
+  - Stop `Timer` and `Ticker` to prevent leaks
 
-2. **Prefer `bytes.Compare` for byte slice comparison**
-   - More efficient than manual comparison
-   - Handles edge cases
-   - Consistent ordering
+- **Sync**:
 
-### Time Operations
+  - Use `defer` for mutex unlocks
+  - Prefer `RWMutex` for read-heavy workloads
+  - Use `Once` for initialization
 
-1. **Always use `time.Now()` for current time**
-
-   - More accurate than manual time
-   - Handles timezone correctly
-   - Thread-safe
-
-2. **Use `time.After` for timeouts**
-   - Cleaner than manual timers
-   - Handles cancellation
-   - Memory efficient
-
-### Sync Operations
-
-1. **Always use `defer` with mutex unlocks**
-
-   - Prevents deadlocks
-   - Handles panics
-   - More maintainable
-
-2. **Use `RWMutex` for read-heavy operations**
-   - Better performance
-   - Allows concurrent reads
-   - Maintains consistency
-
-### IO Operations
-
-1. **Always check errors**
-
-   - Prevents silent failures
-   - Better error handling
-   - More reliable code
-
-2. **Use `defer` for closing resources**
-   - Ensures cleanup
-   - Handles panics
-   - More maintainable
+- **IO**:
+  - Buffer I/O operations for efficiency
+  - Implement interfaces for custom readers/writers
+  - Use utilities like `io.Copy` for simplicity
 
 ## Advanced Patterns
 
-### String Pooling
+### Concurrent String Processing
 
 ```go
-type StringPool struct {
-    mu sync.RWMutex
-    m  map[string]string
+package main
+
+import (
+    "fmt"
+    "strings"
+    "sync"
+)
+
+func processChunk(chunk string) string {
+    return strings.ToUpper(chunk)
 }
 
-func (p *StringPool) Get(s string) string {
-    p.mu.RLock()
-    if cached, ok := p.m[s]; ok {
-        p.mu.RUnlock()
-        return cached
+func main() {
+    input := "hello,world,go,programming"
+    chunks := strings.Split(input, ",")
+    results := make([]string, len(chunks))
+    var wg sync.WaitGroup
+
+    for i, chunk := range chunks {
+        wg.Add(1)
+        go func(i int, s string) {
+            defer wg.Done()
+            results[i] = processChunk(s)
+        }(i, chunk)
     }
-    p.mu.RUnlock()
 
-    p.mu.Lock()
-    defer p.mu.Unlock()
-
-    if cached, ok := p.m[s]; ok {
-        return cached
-    }
-
-    p.m[s] = s
-    return s
+    wg.Wait()
+    fmt.Println(strings.Join(results, ",")) // HELLO,WORLD,GO,PROGRAMMING
 }
 ```
 
-### Time-based Rate Limiting
+### Time-Based Caching
 
 ```go
-type RateLimiter struct {
-    mu       sync.Mutex
-    rate     time.Duration
-    lastTime time.Time
+package main
+
+import (
+    "fmt"
+    "sync"
+    "time"
+)
+
+type Cache struct {
+    mu     sync.RWMutex
+    data   map[string]string
+    expiry map[string]time.Time
+    ttl    time.Duration
 }
 
-func (r *RateLimiter) Wait() {
-    r.mu.Lock()
-    defer r.mu.Unlock()
-
-    now := time.Now()
-    elapsed := now.Sub(r.lastTime)
-    if elapsed < r.rate {
-        time.Sleep(r.rate - elapsed)
+func NewCache(ttl time.Duration) *Cache {
+    c := &Cache{
+        data:   make(map[string]string),
+        expiry: make(map[string]time.Time),
+        ttl:    ttl,
     }
-    r.lastTime = time.Now()
+    go c.cleanup()
+    return c
+}
+
+func (c *Cache) Set(key, value string) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.data[key] = value
+    c.expiry[key] = time.Now().Add(c.ttl)
+}
+
+func (c *Cache) Get(key string) (string, bool) {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    if time.Now().After(c.expiry[key]) {
+        return "", false
+    }
+    v, ok := c.data[key]
+    return v, ok
+}
+
+func (c *Cache) cleanup() {
+    ticker := time.NewTicker(time.Minute)
+    defer ticker.Stop()
+    for range ticker.C {
+        c.mu.Lock()
+        for k, expiry := range c.expiry {
+            if time.Now().After(expiry) {
+                delete(c.data, k)
+                delete(c.expiry, k)
+            }
+        }
+        c.mu.Unlock()
+    }
+}
+
+func main() {
+    cache := NewCache(2 * time.Second)
+    cache.Set("key", "value")
+    if v, ok := cache.Get("key"); ok {
+        fmt.Println("Found:", v) // Found: value
+    }
+    time.Sleep(3 * time.Second)
+    if _, ok := cache.Get("key"); !ok {
+        fmt.Println("Expired")
+    }
 }
 ```
 
-### IO Pipeline
+## Testing with the Standard Library
+
+### Testing Strings and Bytes
 
 ```go
-type Pipeline struct {
-    stages []func(io.Reader) io.Reader
+package main
+
+import (
+    "bytes"
+    "strings"
+    "testing"
+)
+
+func TestStringBuilder(t *testing.T) {
+    var b strings.Builder
+    b.WriteString("test")
+    if got := b.String(); got != "test" {
+        t.Errorf("Expected 'test', got %q", got)
+    }
 }
 
-func (p *Pipeline) Process(r io.Reader) io.Reader {
-    for _, stage := range p.stages {
-        r = stage(r)
+func TestBytesBuffer(t *testing.T) {
+    var buf bytes.Buffer
+    buf.WriteString("hello")
+    if got := buf.String(); got != "hello" {
+        t.Errorf("Expected 'hello', got %q", got)
     }
-    return r
 }
 ```
 
-Remember:
+### Testing Time-Dependent Code
 
-- Use appropriate package for the task
-- Handle errors properly
-- Clean up resources
-- Consider performance implications
-- Use standard library functions when available
-- Follow Go idioms and patterns
-- Document complex operations
-- Test edge cases
-- Consider concurrent access
-- Use appropriate synchronization primitives
+```go
+package main
 
-This guide covers the fundamental and advanced aspects of Go's core standard library packages. Understanding these packages is crucial for writing efficient and idiomatic Go code.
+import (
+    "testing"
+    "time"
+)
+
+func TestTimeout(t *testing.T) {
+    timer := time.NewTimer(100 * time.Millisecond)
+    select {
+    case <-timer.C:
+        return
+    case <-time.After(200 * time.Millisecond):
+        t.Error("Timer didn't fire in time")
+    }
+}
+```
+
+_Last Updated: April 11, 2025_
