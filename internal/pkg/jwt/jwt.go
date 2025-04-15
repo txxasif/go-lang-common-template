@@ -9,24 +9,97 @@ import (
 )
 
 var (
+	// ErrInvalidToken is returned when a token is invalid
 	ErrInvalidToken = errors.New("invalid token")
+	// ErrTokenExpired is returned when a token has expired
 	ErrTokenExpired = errors.New("token expired")
+	// ErrInvalidSigningMethod is returned when token signing method is invalid
+	ErrInvalidSigningMethod = errors.New("invalid signing method")
 )
 
-type Service struct {
-	secretKey []byte
+// TokenType represents the type of JWT token
+type TokenType string
+
+const (
+	// AccessToken is a short-lived token for API access
+	AccessToken TokenType = "access"
+	// RefreshToken is a long-lived token for refreshing access tokens
+	RefreshToken TokenType = "refresh"
+)
+
+// Claims represents the claims in a JWT token
+type Claims struct {
+	UserID uint      `json:"user_id"`
+	Type   TokenType `json:"type"`
+	jwt.RegisteredClaims
 }
 
+// TokenService defines the interface for JWT operations
+type TokenService interface {
+	// GenerateAccessToken generates a new access token
+	GenerateAccessToken(userID uint) (string, error)
+	// GenerateRefreshToken generates a new refresh token
+	GenerateRefreshToken(userID uint) (string, error)
+	// ValidateToken validates a token and returns the user ID
+	ValidateToken(tokenString string) (uint, TokenType, error)
+	// ParseToken parses a token without validation
+	ParseToken(tokenString string) (*Claims, error)
+}
+
+// Service implements the TokenService interface
+type Service struct {
+	secretKey     []byte
+	accessExpiry  time.Duration
+	refreshExpiry time.Duration
+}
+
+// ServiceConfig holds configuration for the JWT service
+type ServiceConfig struct {
+	SecretKey     string
+	AccessExpiry  time.Duration
+	RefreshExpiry time.Duration
+}
+
+// NewService creates a new TokenService instance
 func NewService(secretKey string) *Service {
+	// Default expiration times if not provided
 	return &Service{
-		secretKey: []byte(secretKey),
+		secretKey:     []byte(secretKey),
+		accessExpiry:  24 * time.Hour,
+		refreshExpiry: 7 * 24 * time.Hour,
 	}
 }
 
-func (s *Service) GenerateToken(userID uint) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+// NewServiceWithConfig creates a new TokenService with custom configuration
+func NewServiceWithConfig(config ServiceConfig) *Service {
+	return &Service{
+		secretKey:     []byte(config.SecretKey),
+		accessExpiry:  config.AccessExpiry,
+		refreshExpiry: config.RefreshExpiry,
+	}
+}
+
+// GenerateAccessToken generates a new access token for a user
+func (s *Service) GenerateAccessToken(userID uint) (string, error) {
+	return s.generateToken(userID, AccessToken, s.accessExpiry)
+}
+
+// GenerateRefreshToken generates a new refresh token for a user
+func (s *Service) GenerateRefreshToken(userID uint) (string, error) {
+	return s.generateToken(userID, RefreshToken, s.refreshExpiry)
+}
+
+// generateToken generates a token with the given parameters
+func (s *Service) generateToken(userID uint, tokenType TokenType, expiry time.Duration) (string, error) {
+	now := time.Now()
+	claims := Claims{
+		UserID: userID,
+		Type:   tokenType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -37,26 +110,35 @@ func (s *Service) GenerateToken(userID uint) (string, error) {
 	return tokenString, nil
 }
 
-func (s *Service) ValidateToken(tokenString string) (uint, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+// ValidateToken validates a token and returns the user ID and token type
+func (s *Service) ValidateToken(tokenString string) (uint, TokenType, error) {
+	claims, err := s.ParseToken(tokenString)
+	if err != nil {
+		return 0, "", err
+	}
+
+	return claims.UserID, claims.Type, nil
+}
+
+// ParseToken parses a token without validation
+func (s *Service) ParseToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, ErrInvalidToken
+			return nil, ErrInvalidSigningMethod
 		}
 		return s.secretKey, nil
 	})
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
-			return 0, ErrTokenExpired
+			return nil, ErrTokenExpired
 		}
-		return 0, fmt.Errorf("failed to parse token: %w", err)
+		return nil, fmt.Errorf("failed to parse token: %w", err)
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		if userID, ok := claims["user_id"].(float64); ok {
-			return uint(userID), nil
-		}
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
 	}
 
-	return 0, ErrInvalidToken
+	return nil, ErrInvalidToken
 }

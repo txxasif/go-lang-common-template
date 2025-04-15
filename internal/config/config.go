@@ -24,8 +24,9 @@ type Database struct {
 
 // JWT holds JWT configuration
 type JWT struct {
-	Secret    string
-	ExpiresIn time.Duration
+	Secret           string
+	AccessExpiresIn  time.Duration
+	RefreshExpiresIn time.Duration
 }
 
 // Config holds all application configuration
@@ -53,8 +54,9 @@ func Load() (*Config, error) {
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
 		},
 		JWT: JWT{
-			Secret:    getEnv("JWT_SECRET", "your-secret-key"),
-			ExpiresIn: time.Duration(getEnvAsInt("JWT_EXPIRES_IN", 24)) * time.Hour,
+			Secret:           getEnv("JWT_SECRET", "your-secret-key"),
+			AccessExpiresIn:  time.Duration(getEnvAsInt("JWT_ACCESS_EXPIRES_IN", 24)) * time.Hour,
+			RefreshExpiresIn: time.Duration(getEnvAsInt("JWT_REFRESH_EXPIRES_IN", 7*24)) * time.Hour,
 		},
 	}, nil
 }

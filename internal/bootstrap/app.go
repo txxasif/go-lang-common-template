@@ -6,6 +6,7 @@ import (
 
 	"myapp/internal/config"
 	"myapp/internal/handler"
+	"myapp/internal/pkg/jwt"
 	"myapp/internal/repository"
 	"myapp/internal/router"
 	"myapp/internal/service"
@@ -41,8 +42,15 @@ func NewApp(cfg *config.Config) (*App, error) {
 	// Initialize repositories
 	repos := repository.NewRepositories(db)
 
+	// Initialize JWT service with config
+	jwtService := jwt.NewServiceWithConfig(jwt.ServiceConfig{
+		SecretKey:     cfg.JWT.Secret,
+		AccessExpiry:  cfg.JWT.AccessExpiresIn,
+		RefreshExpiry: cfg.JWT.RefreshExpiresIn,
+	})
+
 	// Initialize services
-	authService := service.NewAuthService(repos.User, cfg.JWT.Secret)
+	authService := service.NewAuthService(repos.User, jwtService)
 	todoService := service.NewTodoService(repos.Todo)
 
 	// Initialize handlers

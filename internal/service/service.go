@@ -1,7 +1,7 @@
 package service
 
 import (
-	"myapp/internal/repository"
+	"time"
 )
 
 // Services holds all services
@@ -10,10 +10,9 @@ type Services struct {
 	Todo TodoService
 }
 
-// NewServices creates a new Services instance
-func NewServices(repos *repository.Repositories, jwtSecret string) *Services {
-	return &Services{
-		Auth: NewAuthService(repos.User, jwtSecret),
-		Todo: NewTodoService(repos.Todo),
-	}
+// JWTConfig contains the configuration for JWT tokens
+type JWTConfig struct {
+	Secret           string
+	AccessExpiresIn  time.Duration
+	RefreshExpiresIn time.Duration
 }

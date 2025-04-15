@@ -4,38 +4,56 @@ import (
 	"context"
 	"errors"
 	"myapp/internal/model"
+	"myapp/internal/pkg/jwt"
 	"myapp/internal/repository"
-	"strconv"
 )
 
 var (
 	// ErrInvalidCredentials is returned when provided credentials are invalid
 	ErrInvalidCredentials = model.ErrInvalidCredentials
+	// ErrInvalidToken is returned when a token is invalid
+	ErrInvalidToken = errors.New("invalid token")
+	// ErrUnauthorized is returned when a user is not authorized
+	ErrUnauthorized = errors.New("unauthorized")
 )
+
+// AuthResponse contains the response after authentication
+type AuthResponse struct {
+	User         model.UserResponse `json:"user"`
+	AccessToken  string             `json:"access_token"`
+	RefreshToken string             `json:"refresh_token"`
+}
+
+// RefreshResponse contains the response after refreshing tokens
+type RefreshResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
 
 // AuthService defines the interface for authentication operations
 type AuthService interface {
-	Login(ctx context.Context, email, password string) (*model.AuthResponse, error)
-	Register(ctx context.Context, req *model.RegisterRequest) (*model.AuthResponse, error)
+	Login(ctx context.Context, email, password string) (*AuthResponse, error)
+	Register(ctx context.Context, req *model.RegisterRequest) (*AuthResponse, error)
 	GetUserByToken(ctx context.Context, token string) (*model.User, error)
+	RefreshTokens(ctx context.Context, refreshToken string) (*RefreshResponse, error)
 }
 
 // authService implements AuthService interface
 type authService struct {
 	userRepo repository.UserRepository
-	jwt      *JWTService
+	jwt      *jwt.Service
 }
 
 // NewAuthService creates a new AuthService instance
-func NewAuthService(userRepo repository.UserRepository, jwtSecret string) AuthService {
+func NewAuthService(userRepo repository.UserRepository, jwtService *jwt.Service) AuthService {
 	return &authService{
 		userRepo: userRepo,
-		jwt:      NewJWTService(jwtSecret),
+		jwt:      jwtService,
 	}
 }
 
 // Register registers a new user
-func (s *authService) Register(ctx context.Context, req *model.RegisterRequest) (*model.AuthResponse, error) {
+func (s *authService) Register(ctx context.Context, req *model.RegisterRequest) (*AuthResponse, error) {
 	// Check if email already exists
 	existingUser, err := s.userRepo.GetByEmail(ctx, req.Email)
 	if err != nil {
@@ -72,19 +90,26 @@ func (s *authService) Register(ctx context.Context, req *model.RegisterRequest) 
 		return nil, err
 	}
 
-	token, err := s.jwt.GenerateToken(strconv.FormatUint(uint64(user.ID), 10))
+	// Generate tokens
+	accessToken, err := s.jwt.GenerateAccessToken(user.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.AuthResponse{
-		User:  user.ToResponse(),
-		Token: token,
+	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthResponse{
+		User:         user.ToResponse(),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
 }
 
 // Login authenticates a user
-func (s *authService) Login(ctx context.Context, email, password string) (*model.AuthResponse, error) {
+func (s *authService) Login(ctx context.Context, email, password string) (*AuthResponse, error) {
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, err
@@ -97,30 +122,37 @@ func (s *authService) Login(ctx context.Context, email, password string) (*model
 		return nil, ErrInvalidCredentials
 	}
 
-	token, err := s.jwt.GenerateToken(strconv.FormatUint(uint64(user.ID), 10))
+	// Generate tokens
+	accessToken, err := s.jwt.GenerateAccessToken(user.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &model.AuthResponse{
-		User:  user.ToResponse(),
-		Token: token,
+	refreshToken, err := s.jwt.GenerateRefreshToken(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AuthResponse{
+		User:         user.ToResponse(),
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
 }
 
-// GetUser retrieves a user by ID
+// GetUserByToken retrieves a user from a token
 func (s *authService) GetUserByToken(ctx context.Context, token string) (*model.User, error) {
-	userIDStr, err := s.jwt.ValidateToken(token)
+	userID, tokenType, err := s.jwt.ValidateToken(token)
 	if err != nil {
 		return nil, err
 	}
 
-	userID, err := strconv.ParseUint(userIDStr, 10, 64)
-	if err != nil {
-		return nil, errors.New("invalid user ID in token")
+	// Only access tokens should be used for authentication
+	if tokenType != jwt.AccessToken {
+		return nil, ErrUnauthorized
 	}
 
-	user, err := s.userRepo.GetByID(ctx, uint(userID))
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -129,4 +161,39 @@ func (s *authService) GetUserByToken(ctx context.Context, token string) (*model.
 	}
 
 	return user, nil
+}
+
+// RefreshTokens refreshes the access and refresh tokens
+func (s *authService) RefreshTokens(ctx context.Context, refreshToken string) (*RefreshResponse, error) {
+	userID, tokenType, err := s.jwt.ValidateToken(refreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verify it's a refresh token
+	if tokenType != jwt.RefreshToken {
+		return nil, ErrUnauthorized
+	}
+
+	// Verify user exists
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, ErrUnauthorized
+	}
+
+	// Generate new tokens
+	newAccessToken, err := s.jwt.GenerateAccessToken(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	newRefreshToken, err := s.jwt.GenerateRefreshToken(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RefreshResponse{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRefreshToken,
+	}, nil
 }

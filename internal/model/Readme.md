@@ -176,18 +176,171 @@ type Profile struct {
 
 ### One-to-Many
 
+One-to-Many relationships are very common in database designs. This relationship exists when a single record in one table is associated with multiple records in another table. Examples include:
+- A user having multiple posts
+- A department having multiple employees
+- A product having multiple reviews
+
+#### Basic Implementation
+
 ```go
 type User struct {
     ID    uint    `gorm:"primaryKey" json:"id"`
+    Name  string  `json:"name"`
     Posts []Post  `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"posts"`
 }
 
 type Post struct {
-    ID     uint   `gorm:"primaryKey" json:"id"`
-    UserID uint   `json:"user_id"`
-    User   User   `gorm:"foreignKey:UserID" json:"user"`
+    ID        uint      `gorm:"primaryKey" json:"id"`
+    Title     string    `json:"title"`
+    Content   string    `json:"content"`
+    UserID    uint      `json:"user_id"`
+    User      User      `gorm:"foreignKey:UserID" json:"user"`
+    CreatedAt time.Time `json:"created_at"`
 }
 ```
+
+#### Tag Options Explained
+
+- `foreignKey`: Specifies which field is used as the foreign key (default is the owner's type name + primary key)
+- `references`: Specifies which field the foreign key references (default is the primary key)
+- `constraint`: Defines referential actions (CASCADE, SET NULL, RESTRICT, etc.)
+
+#### Complete Example with Operations
+
+```go
+// Define models
+type Author struct {
+    ID        uint       `gorm:"primaryKey" json:"id"`
+    Name      string     `json:"name"`
+    Email     string     `gorm:"uniqueIndex" json:"email"`
+    Books     []Book     `gorm:"foreignKey:AuthorID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"books"`
+    CreatedAt time.Time  `json:"created_at"`
+    UpdatedAt time.Time  `json:"updated_at"`
+}
+
+type Book struct {
+    ID          uint      `gorm:"primaryKey" json:"id"`
+    Title       string    `json:"title"`
+    Description string    `json:"description"`
+    PublishedAt time.Time `json:"published_at"`
+    AuthorID    *uint     `json:"author_id"` // Nullable foreign key
+    Author      Author    `gorm:"foreignKey:AuthorID" json:"author,omitempty"`
+    CreatedAt   time.Time `json:"created_at"`
+    UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// Creating records with association
+func CreateAuthorWithBooks(db *gorm.DB) error {
+    author := Author{
+        Name:  "John Doe",
+        Email: "john@example.com",
+        Books: []Book{
+            {Title: "GORM Basics", Description: "Introduction to GORM", PublishedAt: time.Now()},
+            {Title: "Advanced GORM", Description: "Deep dive into GORM", PublishedAt: time.Now()},
+        },
+    }
+    
+    return db.Create(&author).Error
+}
+
+// Querying with preload
+func GetAuthorWithBooks(db *gorm.DB, authorID uint) (*Author, error) {
+    var author Author
+    if err := db.Preload("Books").First(&author, authorID).Error; err != nil {
+        return nil, err
+    }
+    return &author, nil
+}
+
+// Adding a book to an existing author
+func AddBookToAuthor(db *gorm.DB, authorID uint, book Book) error {
+    return db.Model(&Author{ID: authorID}).Association("Books").Append(&book)
+}
+
+// Count books for an author
+func CountAuthorBooks(db *gorm.DB, authorID uint) (int64, error) {
+    var count int64
+    err := db.Model(&Book{}).Where("author_id = ?", authorID).Count(&count).Error
+    return count, err
+}
+
+// Find all books for an author without loading the author
+func GetAuthorBooks(db *gorm.DB, authorID uint) ([]Book, error) {
+    var books []Book
+    err := db.Where("author_id = ?", authorID).Find(&books).Error
+    return books, err
+}
+```
+
+#### Self-Referential One-to-Many
+
+A common use case is hierarchical data like comments with replies:
+
+```go
+type Comment struct {
+    ID        uint      `gorm:"primaryKey" json:"id"`
+    Content   string    `json:"content"`
+    ParentID  *uint     `json:"parent_id"`
+    Parent    *Comment  `gorm:"foreignKey:ParentID" json:"parent,omitempty"`
+    Replies   []Comment `gorm:"foreignKey:ParentID" json:"replies,omitempty"`
+    CreatedAt time.Time `json:"created_at"`
+}
+```
+
+#### Best Practices
+
+1. **Always handle the error returned by GORM**:
+   ```go
+   if err := db.Preload("Books").First(&author, authorID).Error; err != nil {
+       return nil, err
+   }
+   ```
+
+2. **Use Preload judiciously** to avoid N+1 queries:
+   ```go
+   // Good - Single query with preload
+   db.Preload("Books").Find(&authors)
+   
+   // Bad - N+1 queries
+   db.Find(&authors)
+   for _, author := range authors {
+       db.Model(&author).Association("Books").Find(&author.Books)
+   }
+   ```
+
+3. **Consider nullable foreign keys** when appropriate:
+   ```go
+   AuthorID *uint `json:"author_id"` // Can be NULL
+   ```
+
+4. **Use association mode for complex operations**:
+   ```go
+   // Replace all books
+   db.Model(&author).Association("Books").Replace(&newBooks)
+   
+   // Delete specific association
+   db.Model(&author).Association("Books").Delete(&bookToDelete)
+   
+   // Clear all associations
+   db.Model(&author).Association("Books").Clear()
+   ```
+
+5. **Set appropriate ON DELETE constraints**:
+   ```go
+   // When parent is deleted, set children to NULL
+   `gorm:"foreignKey:AuthorID;constraint:OnDelete:SET NULL"`
+   
+   // When parent is deleted, delete all children
+   `gorm:"foreignKey:AuthorID;constraint:OnDelete:CASCADE"`
+   ```
+
+6. **For large collections, consider using limits and pagination**:
+   ```go
+   db.Preload("Books", func(db *gorm.DB) *gorm.DB {
+       return db.Order("published_at DESC").Limit(10)
+   }).Find(&authors)
+   ```
 
 ### Many-to-Many
 
